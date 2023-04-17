@@ -1,23 +1,18 @@
 import numpy as np
-from easydict import EasyDict as edict
-from pymodaq.daq_utils.daq_utils import ThreadCommand, getLineInfo
-from pymodaq.daq_utils.daq_utils import DataFromPlugins, Axis
+from pymodaq.daq_utils.daq_utils import ThreadCommand
+from pymodaq.daq_utils.daq_utils import DataFromPlugins
 from pymodaq.control_modules.viewer_utility_classes import DAQ_Viewer_base, comon_parameters, main
 from pymodaq.daq_utils.parameter import Parameter
 
 
-class PythonWrapperOfYourInstrument:
-    #  TODO Replace this fake class with the import of the real python wrapper of your instrument
-    pass
+from pymodaq_plugins_signal_recovery.hardware.utils import get_resources
 
 
-class DAQ_1DViewer_Template(DAQ_Viewer_base):
+class DAQ_0DViewer_Lockin_DSP7270(DAQ_Viewer_base):
     """
     """
     params = comon_parameters+[
-        ## TODO for your custom plugin
-        # elements to be added here as dicts in order to control your custom stage
-        ############
+        ## TODO for your custom plugin: elements to be added here as dicts in order to control your custom stage
         ]
 
     def ini_attributes(self):
@@ -25,9 +20,8 @@ class DAQ_1DViewer_Template(DAQ_Viewer_base):
         #  autocompletion
         self.controller: PythonWrapperOfYourInstrument = None
 
-        # TODO declare here attributes you want/need to init with a default value
-
-        self.x_axis = None
+        #TODO declare here attributes you want/need to init with a default value
+        pass
 
     def commit_settings(self, param: Parameter):
         """Apply the consequences of a change of value in the detector settings
@@ -39,7 +33,7 @@ class DAQ_1DViewer_Template(DAQ_Viewer_base):
         """
         ## TODO for your custom plugin
         if param.name() == "a_parameter_you've_added_in_self.params":
-           self.controller.your_method_to_apply_this_param_change()
+           self.controller.your_method_to_apply_this_param_change()  # when writing your own plugin replace this line
 #        elif ...
         ##
 
@@ -63,20 +57,13 @@ class DAQ_1DViewer_Template(DAQ_Viewer_base):
         self.ini_detector_init(old_controller=controller,
                                new_controller=PythonWrapperOfYourInstrument())
 
-        ## TODO for your custom plugin
-        # get the x_axis (you may want to to this also in the commit settings if x_axis may have changed
-        data_x_axis = self.controller.your_method_to_get_the_x_axis() # if possible
-        self.x_axis = Axis(data=data_x_axis, label='', units='')
+        # TODO for your custom plugin (optional) initialize viewers panel with the future type of data
+        self.data_grabed_signal_temp.emit([DataFromPlugins(name='Mock1',data=[np.array([0]), np.array([0])],
+                                                           dim='Data0D',
+                                                           labels=['Mock1', 'label2'])])
 
-        # TODO for your custom plugin. Initialize viewers pannel with the future type of data
-        self.data_grabed_signal_temp.emit([DataFromPlugins(name='Mock1',
-                                                           data=[np.array([0., 0., ...]), np.array([0., 0., ...])],
-                                                           dim='Data1D', labels=['Mock1', 'label2'],
-                                                           x_axis=self.x_axis)])
-        # note: you could either emit the x_axis once (or a given place in the code) using self.emit_x_axis() as shown
-        # above. Or emit it at every grab filling it the x_axis key of DataFromPlugins)
         info = "Whatever info you want to log"
-        initialized = True
+        initialized = self.controller.a_method_or_atttribute_to_check_if_init()  # TODO
         return info, initialized
 
     def close(self):
@@ -98,15 +85,16 @@ class DAQ_1DViewer_Template(DAQ_Viewer_base):
         """
         ## TODO for your custom plugin
 
-        ##synchrone version (blocking function)
+        # synchrone version (blocking function)
+        raise NotImplemented  # when writing your own plugin remove this line
         data_tot = self.controller.your_method_to_start_a_grab_snap()
         self.data_grabed_signal.emit([DataFromPlugins(name='Mock1', data=data_tot,
-                                                      dim='Data1D', labels=['dat0', 'data1'])])
-        # note: you could either emit the x_axis once (or a given place in the code) using self.emit_x_axis() as shown
-        # above. Or emit it at every grab filling it the x_axis key of DataFromPlugins, not shown here)
+                                                      dim='Data0D', labels=['dat0', 'data1'])])
+        #########################################################
 
-        ##asynchrone version (non-blocking function with callback)
-        self.controller.your_method_to_start_a_grab_snap(self.callback)
+        # asynchrone version (non-blocking function with callback)
+        raise NotImplemented  # when writing your own plugin remove this line
+        self.controller.your_method_to_start_a_grab_snap(self.callback)  # when writing your own plugin replace this line
         #########################################################
 
 
@@ -114,7 +102,7 @@ class DAQ_1DViewer_Template(DAQ_Viewer_base):
         """optional asynchrone method called when the detector has finished its acquisition of data"""
         data_tot = self.controller.your_method_to_get_data_from_buffer()
         self.data_grabed_signal.emit([DataFromPlugins(name='Mock1', data=data_tot,
-                                                      dim='Data1D', labels=['dat0', 'data1'])])
+                                                      dim='Data0D', labels=['dat0', 'data1'])])
 
     def stop(self):
         """Stop the current grab hardware wise if necessary"""

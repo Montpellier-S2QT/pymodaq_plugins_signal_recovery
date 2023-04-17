@@ -2,12 +2,11 @@ from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, comon_pa
 from pymodaq.daq_utils.daq_utils import ThreadCommand # object used to send info back to the main thread
 from pymodaq.daq_utils.parameter import Parameter
 
-class PythonWrapperOfYourInstrument:
-    #  TODO Replace this fake class with the import of the real python wrapper of your instrument
-    pass
+from pymeasure.instruments.ametek import Ametek7270
+from pymeasure.instruments import list_resources
 
 
-class DAQ_Move_Template(DAQ_Move_base):
+class DAQ_Move_Lockin_DSP7270(DAQ_Move_base):
     """Plugin for the Template Instrument
 
     This object inherits all functionality to communicate with PyMoDAQ Module through inheritance via DAQ_Move_base
@@ -18,26 +17,21 @@ class DAQ_Move_Template(DAQ_Move_base):
     controller: object
         The particular object that allow the communication with the hardware, in general a python wrapper around the
          hardware library
-    # TODO add your particular attributes here if any
 
     """
-    _controller_units = 'whatever'  # TODO for your plugin: put the correct unit here
-    is_multiaxes = False  # TODO for your plugin set to True if this plugin is controlled for a multiaxis controller
+    _controller_units = 'that depends'
+    is_multiaxes = False
     axes_names = ['Axis1', 'Axis2']  # TODO for your plugin: complete the list
-    _epsilon = 0.1  # TODO replace this by a value that is correct depending on your controller
+    _epsilon = 0.1
 
-    params = [   # TODO for your custom plugin: elements to be added here as dicts in order to control your custom stage
-                ] + comon_parameters_fun(is_multiaxes, axes_names, epsilon=_epsilon)
+    params = [{'title': 'VISA Address:', 'name': 'address', 'type': 'str'}
+              ] + comon_parameters_fun(is_multiaxes, axes_names, epsilon=_epsilon)
     # _epsilon is the initial default value for the epsilon parameter allowing pymodaq to know if the controller reached
     # the target value. It is the developer responsibility to put here a meaningful value
 
     def ini_attributes(self):
-        #  TODO declare the type of the wrapper (and assign it to self.controller) you're going to use for easy
-        #  autocompletion
-        self.controller: PythonWrapperOfYourInstrument = None
+        self.controller: Ametek7270 = None
 
-        #TODO declare here attributes you want/need to init with a default value
-        pass
 
     def get_actuator_value(self):
         """Get the current value from the hardware with scaling conversion.
