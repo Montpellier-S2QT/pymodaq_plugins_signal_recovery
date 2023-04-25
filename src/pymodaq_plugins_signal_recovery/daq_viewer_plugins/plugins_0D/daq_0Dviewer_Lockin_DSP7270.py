@@ -1,27 +1,63 @@
 import numpy as np
-from pymodaq.daq_utils.daq_utils import ThreadCommand
-from pymodaq.daq_utils.daq_utils import DataFromPlugins
+from pymodaq.utils.daq_utils import ThreadCommand
+from pymodaq.utils.data import DataFromPlugins
 from pymodaq.control_modules.viewer_utility_classes import DAQ_Viewer_base, comon_parameters, main
-from pymodaq.daq_utils.parameter import Parameter
-
+from pymodaq.utils.parameter import Parameter, utils
 
 from pymodaq_plugins_signal_recovery.hardware.utils import get_resources
+from pymeasure.instruments.ametek.ametek7270 import Ametek7270
+from pyqtgraph.parametertree.Parameter import registerParameterType
+from pyqtgraph.parametertree.parameterTypes.basetypes import GroupParameter
+
+
+CHANNELS = ['x', 'y', 'mag', 'theta', 'adc1', 'adc2', 'adc3', 'adc4', 'x1', 'y1', 'x2', 'y2']
+
+for channel in CHANNELS:
+    assert hasattr(Ametek7270, channel)
+
+
+class ChannelGroup(GroupParameter):
+    """
+    """
+
+    def __init__(self, **opts):
+        opts['type'] = 'dsp7270channel'
+        opts['addText'] = "Add channel"
+        super().__init__(**opts)
+
+    def addNew(self):
+        """
+
+        """
+        name_prefix = 'channel'
+
+        child_indexes = [int(par.name()[len(name_prefix) + 1:]) for par in self.children()]
+
+        if child_indexes == []:
+            newindex = 0
+        else:
+            newindex = max(child_indexes) + 1
+
+        child = {'title': f'Measure {newindex:02.0f}', 'name': f'{name_prefix}{newindex:02.0f}', 'type': 'itemselect',
+        'removable': True, 'value': dict(all_items=CHANNELS, selected=CHANNELS[0])}
+
+        self.addChild(child)
+
+
+registerParameterType('dsp7270channel', ChannelGroup, override=True)
 
 
 class DAQ_0DViewer_Lockin_DSP7270(DAQ_Viewer_base):
     """
     """
-    params = comon_parameters+[
-        ## TODO for your custom plugin: elements to be added here as dicts in order to control your custom stage
+    params = comon_parameters + [
+        {'title': 'Address:', 'name': 'address', 'type': 'list', 'limits': get_resources()},
+        {'title': 'ID:', 'name': 'id', 'type': 'str'},
+        {'title': 'Channels:', 'name': 'channels', 'type': 'dsp7270channel'}
         ]
 
     def ini_attributes(self):
-        #  TODO declare the type of the wrapper (and assign it to self.controller) you're going to use for easy
-        #  autocompletion
-        self.controller: PythonWrapperOfYourInstrument = None
-
-        #TODO declare here attributes you want/need to init with a default value
-        pass
+        self.controller: Ametek7270 = None
 
     def commit_settings(self, param: Parameter):
         """Apply the consequences of a change of value in the detector settings
@@ -31,11 +67,13 @@ class DAQ_0DViewer_Lockin_DSP7270(DAQ_Viewer_base):
         param: Parameter
             A given parameter (within detector_settings) whose value has been changed by the user
         """
-        ## TODO for your custom plugin
-        if param.name() == "a_parameter_you've_added_in_self.params":
-           self.controller.your_method_to_apply_this_param_change()  # when writing your own plugin replace this line
-#        elif ...
-        ##
+        if param.name() in utils.iter_children(self.settings.child('channels'), []):
+            data = []
+            for child in self.settings.child('channels').children():
+                labels = child.value()['selected']
+                data.append(DataFromPlugins(name=child.name(), data=[np.array([0]) for _ in labels],
+                                            labels=labels, dim='Data0D'))
+            self.data_grabed_signal_temp.emit(data)
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -53,24 +91,17 @@ class DAQ_0DViewer_Lockin_DSP7270(DAQ_Viewer_base):
             False if initialization failed otherwise True
         """
 
-        raise NotImplemented  # TODO when writing your own plugin remove this line and modify the one below
         self.ini_detector_init(old_controller=controller,
-                               new_controller=PythonWrapperOfYourInstrument())
+                               new_controller=Ametek7270(self.settings['address']))
 
-        # TODO for your custom plugin (optional) initialize viewers panel with the future type of data
-        self.data_grabed_signal_temp.emit([DataFromPlugins(name='Mock1',data=[np.array([0]), np.array([0])],
-                                                           dim='Data0D',
-                                                           labels=['Mock1', 'label2'])])
-
-        info = "Whatever info you want to log"
-        initialized = self.controller.a_method_or_atttribute_to_check_if_init()  # TODO
+        info = self.controller.identification()
+        self.settings.child('id').setValue(info)
+        initialized = True
         return info, initialized
 
     def close(self):
         """Terminate the communication protocol"""
-        ## TODO for your custom plugin
-        raise NotImplemented  # when writing your own plugin remove this line
-        #  self.controller.your_method_to_terminate_the_communication()  # when writing your own plugin replace this line
+        self.controller.shutdown()
 
     def grab_data(self, Naverage=1, **kwargs):
         """Start a grab from the detector
@@ -83,36 +114,18 @@ class DAQ_0DViewer_Lockin_DSP7270(DAQ_Viewer_base):
         kwargs: dict
             others optionals arguments
         """
-        ## TODO for your custom plugin
-
-        # synchrone version (blocking function)
-        raise NotImplemented  # when writing your own plugin remove this line
-        data_tot = self.controller.your_method_to_start_a_grab_snap()
-        self.data_grabed_signal.emit([DataFromPlugins(name='Mock1', data=data_tot,
-                                                      dim='Data0D', labels=['dat0', 'data1'])])
-        #########################################################
-
-        # asynchrone version (non-blocking function with callback)
-        raise NotImplemented  # when writing your own plugin remove this line
-        self.controller.your_method_to_start_a_grab_snap(self.callback)  # when writing your own plugin replace this line
-        #########################################################
-
-
-    def callback(self):
-        """optional asynchrone method called when the detector has finished its acquisition of data"""
-        data_tot = self.controller.your_method_to_get_data_from_buffer()
-        self.data_grabed_signal.emit([DataFromPlugins(name='Mock1', data=data_tot,
-                                                      dim='Data0D', labels=['dat0', 'data1'])])
+        data = []
+        for child in self.settings.child('channels').children():
+            labels = child.value()['selected']
+            subdata = [np.array([getattr(self.controller, label)]) for label in labels]
+            data.append(DataFromPlugins(name=child.name(), data=subdata,
+                                        labels=labels, dim='Data0D'))
+        self.data_grabed_signal.emit(data)
 
     def stop(self):
         """Stop the current grab hardware wise if necessary"""
-        ## TODO for your custom plugin
-        raise NotImplemented  # when writing your own plugin remove this line
-        self.controller.your_method_to_stop_acquisition()  # when writing your own plugin replace this line
-        self.emit_status(ThreadCommand('Update_Status', ['Some info you want to log']))
-        ##############################
         return ''
 
 
 if __name__ == '__main__':
-    main(__file__)
+    main(__file__, init=True)
