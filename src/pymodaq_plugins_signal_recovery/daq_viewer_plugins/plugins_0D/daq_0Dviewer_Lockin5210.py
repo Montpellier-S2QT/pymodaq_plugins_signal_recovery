@@ -3,9 +3,9 @@ from pymodaq.utils.daq_utils import ThreadCommand
 from pymodaq.utils.data import DataFromPlugins, DataToExport
 from pymodaq.control_modules.viewer_utility_classes import DAQ_Viewer_base, comon_parameters, main
 from pymodaq.utils.parameter import Parameter
-import pymodaq.utils.parameter
-import pyvisa
-#from pymodaq_plugins_physical_measurements.hardware.egg5210.egg_5210 import EGG5210
+from pymodaq_plugins_signal_recovery.hardware.lockin5210 import LockIn5210
+from pymodaq_plugins_signal_recovery.hardware.utils import get_resources
+
 
 class DAQ_0DViewer_Lockin5210(DAQ_Viewer_base):
     """ Instrument plugin class for a OD viewer.
@@ -23,55 +23,14 @@ class DAQ_0DViewer_Lockin5210(DAQ_Viewer_base):
          hardware library.
          
     """
-    try:
-        rm = pyvisa.ResourceManager()
-        devices = list(rm.list_resources())
-        device = ''
 
-    except:
-        devices = []
-        device = ''
-
-    params = comon_parameters+[
-                {'title': 'VISA:','name': 'VISA_ressources', 'type': 'list', 'limits': devices, 'value': device },
-                {'title': 'Manufacturer:', 'name': 'manufacturer', 'type': 'str', 'value': "" },
-                {'title': 'Serial number:', 'name': 'serial_number', 'type': 'str', 'value': "" },
-                {'title': 'Model:', 'name': 'model', 'type': 'str', 'value': "" },
-                {'title': 'Timeout (ms):', 'name': 'timeout', 'type': 'int', 'value': 2000, 'default': 2000, 'min': 1000 },
-    ]
-    def __init__(self, parent=None, params_state=None):
-        super().__init__(parent, params_state)
-        self.controller = None
-
-    def query_data(self,cmd):
-        try:
-            res=self.inst.query(cmd)
-            searched=re.search('\n',res)
-            status_byte=res[searched.start()+1]
-            overload_byte=res[searched.start()+3]
-            if searched.start!=0:
-                data=np.array([float(x) for x in res[0:searched.start()].split(",")])
-            else:
-                data=None
-            return (status_byte,overload_byte,data)
-        except:
-            return ('\x01','\x00',None)
-
-    def query_string(self,cmd):
-        try:
-            res=self.inst.query(cmd)
-            searched=re.search('\n',res)
-            status_byte=res[searched.start()+1]
-            overload_byte=res[searched.start()+3]
-            if searched.start!=0:
-                str=res[0:searched.start()]
-            else:
-                str=""
-            return (status_byte,overload_byte,str)
-        except:
-            return ('\x01','\x00',"")
-
+    params = comon_parameters + [
+        {'title': 'Address:', 'name': 'address', 'type': 'list', 'limits': get_resources()},
+        {'title': 'ID:', 'name': 'id', 'type': 'str'},
+        {'title': 'Channels:', 'name': 'channels', 'type': 'dsp7270channel'}
+        ]
     def ini_attributes(self):
+        self.controller: LockIn5210 = None
         pass
 
     def commit_settings(self, param: Parameter):
@@ -103,55 +62,23 @@ class DAQ_0DViewer_Lockin5210(DAQ_Viewer_base):
         initialized: bool
             False if initialization failed otherwise True
         """
-        self.status.update(edict(initialized=False, info="", x_axis=None, y_axis=None, controller=None))
-        try:
 
-            if self.settings.child(('controller_status')).value() == "Slave":
-                if controller is None:
-                    raise Exception('no controller has been defined externally while this detector is a slave one')
-                else:
-                    self.controller = controller
-            else:
-                self.controller = self.VISA_rm.open_resource(self.settings.child(('VISA_ressources')).value())
-
-            self.controller.timeout = self.settings.child(('timeout')).value()
-            idn = self.controller.query('OUTX1;*IDN?;')
-            idn = idn.rstrip('\n')
-            idn = idn.rsplit(',')
-            if len(idn) >= 0:
-                self.settings.child(('manufacturer')).setValue(idn[0])
-            if len(idn) >= 1:
-                self.settings.child(('model')).setValue(idn[1])
-            if len(idn) >= 2:
-                self.settings.child(('serial_number')).setValue(idn[2])
-
-            # self.reset()
-
-            self.status.controller = self.controller
-            self.status.initialized = True
-
-            return self.status
-
-        except Exception as e:
-            self.emit_status(ThreadCommand('Update_Status', [getLineInfo() + str(e), 'log']))
-            self.status.info = getLineInfo() + str(e)
-            self.status.initialized = False
-            return self.status
-
-
-        #self.ini_detector_init(old_controller=controller,
-        #                       new_controller=EGG5210())
+        self.ini_detector_init(old_controller=controller,
+                               new_controller=LockIn5210())
 
         # TODO for your custom plugin (optional) initialize viewers panel with the future type of data
-        #self.dte_signal_temp.emit(DataToExport(name='myplugin',
-        #                                       data=[DataFromPlugins(name='Mock1',
-        #                                                            data=[np.array([0]), np.array([0])],
-        #                                                            dim='Data0D',
-        #                                                            labels=['Mock1', 'label2'])]))
+        self.dte_signal_temp.emit(DataToExport(name='myplugin',
+                                               data=[DataFromPlugins(name='Mock1',
+                                                                    data=[np.array([0]), np.array([0])],
+                                                                    dim='Data0D',
+                                                                    labels=['Mock1', 'label2'])]))
 
-        #info = "Je vais initialiser le Lock-In"
-        #initialized = self.controller.open_communication()
-        #return info, initialized
+        info = "EGG 5210"
+        self.settings.child('id').setValue(info)
+        a=self.settings.child(('address')).value()
+        # Attention, corriger pour passer a en argument de open_communication
+        initialized = self.controller.open_communication()
+        return info, initialized
 
     def close(self):
         """Terminate the communication protocol"""
