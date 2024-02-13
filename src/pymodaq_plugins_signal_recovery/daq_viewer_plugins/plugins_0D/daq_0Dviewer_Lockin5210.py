@@ -76,8 +76,7 @@ class DAQ_0DViewer_Lockin5210(DAQ_Viewer_base):
         info = "EGG 5210"
         self.settings.child('id').setValue(info)
         a=self.settings.child(('address')).value()
-        # Attention, corriger pour passer a en argument de open_communication
-        initialized = self.controller.open_communication()
+        initialized = self.controller.open_communication(a)
         return info, initialized
 
     def close(self):
@@ -104,9 +103,9 @@ class DAQ_0DViewer_Lockin5210(DAQ_Viewer_base):
                                                                 dim='Data0D', labels=['dat0', 'data1'])]))
         #########################################################
 
-        # asynchrone version (non-blocking function with callback)
-        # raise NotImplemented  # when writing your own plugin remove this line
-        # self.controller.your_method_to_start_a_grab_snap(self.callback)  # when writing your own plugin replace this line
+         #asynchrone version (non-blocking function with callback)
+         #raise NotImplemented  # when writing your own plugin remove this line
+        #self.controller.get_acquired_data()  # when writing your own plugin replace this line
         #########################################################
 
 
