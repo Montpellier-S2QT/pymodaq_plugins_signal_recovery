@@ -9,12 +9,12 @@ from pymodaq_plugins_signal_recovery.hardware.utils import get_resources
 
 class DAQ_0DViewer_Lockin5210(DAQ_Viewer_base):
     """ Instrument plugin class for a OD viewer.
+
+    This plugins controls an EGG 5210 Lock-In (also Signal Recovery or Ametek 5210)
+    It has been tested with an RS232 5210 Lock-In with Pymodaq 4.1 in a Win10 operating system by P. Valvin@L2C-Montpellier
     
     This object inherits all functionalities to communicate with PyMoDAQ’s DAQ_Viewer module through inheritance via
     DAQ_Viewer_base. It makes a bridge between the DAQ_Viewer module and the Python wrapper of a particular instrument.
-
-    This plugins controls EGG 5210 Lock-In also Signal Recovery or Ametek 5210)
-    It has been tested with an RS232 5210 Lock-In with Pymodaq 4.1 in a Win10 operating system by P. Valvin@L2C-Montpellier
 
     Attributes:
     -----------
@@ -28,6 +28,7 @@ class DAQ_0DViewer_Lockin5210(DAQ_Viewer_base):
         {'title': 'Address:', 'name': 'address', 'type': 'list', 'limits': get_resources()},
         {'title': 'ID:', 'name': 'id', 'type': 'str'},
         ]
+
     def ini_attributes(self):
         self.controller: LockIn5210 = None
         pass
@@ -40,11 +41,11 @@ class DAQ_0DViewer_Lockin5210(DAQ_Viewer_base):
         param: Parameter
             A given parameter (within detector_settings) whose value has been changed by the user
         """
-        ## TODO for your custom plugin
-        if param.name() == "a_parameter_you've_added_in_self.params":
-           self.controller.your_method_to_apply_this_param_change()  # when writing your own plugin replace this line
-#        elif ...
-        ##
+        if param.name() == 'address':
+            self.controller.close_communication()
+            id, initialized = self.controller.open_communication(param.value())
+            self.settings.child('id').setValue(id)
+        pass
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -65,24 +66,21 @@ class DAQ_0DViewer_Lockin5210(DAQ_Viewer_base):
         self.ini_detector_init(old_controller=controller,
                                new_controller=LockIn5210())
 
-        # TODO for your custom plugin (optional) initialize viewers panel with the future type of data
-        self.dte_signal_temp.emit(DataToExport(name='myplugin',
+        self.dte_signal_temp.emit(DataToExport(name='signal_recovery',
                                                data=[DataFromPlugins(name='Mock1',
                                                                     data=[np.array([0]), np.array([0])],
                                                                     dim='Data0D',
                                                                     labels=['Mock1', 'label2'])]))
 
-        info = "EGG 5210"
-        self.settings.child('id').setValue(info)
-        a=self.settings.child(('address')).value()
-        initialized = self.controller.open_communication(a)
+        info = "Initializing EGG 5210"
+        address = self.settings.child(('address')).value()
+        id, initialized = self.controller.open_communication(address)
+        self.settings.child('id').setValue(id)
         return info, initialized
 
     def close(self):
-        """Terminate the communication protocol"""
-        print('coucou')
-        self.controller.close_communication()  # when writing your own plugin replace this line
-        print('ferme')
+        """Terminates the communication protocol"""
+        self.controller.close_communication()
 
     def grab_data(self, Naverage=1, **kwargs):
         """Start a grab from the detector
@@ -98,31 +96,23 @@ class DAQ_0DViewer_Lockin5210(DAQ_Viewer_base):
 
         # synchrone version (blocking function)
         data_tot = self.controller.get_acquired_data()
-        self.dte_signal.emit(DataToExport(name='myplugin',
+        self.dte_signal.emit(DataToExport(name='signal_recovery',
                                           data=[DataFromPlugins(name='Mock1', data=data_tot,
-                                                                dim='Data0D', labels=['dat0', 'data1'])]))
-        #########################################################
+                                                                dim='Data0D', labels=['data0', 'data1'])]))
 
-         #asynchrone version (non-blocking function with callback)
-         #raise NotImplemented  # when writing your own plugin remove this line
-        #self.controller.get_acquired_data()  # when writing your own plugin replace this line
-        #########################################################
 
 
     def callback(self):
         """optional asynchrone method called when the detector has finished its acquisition of data"""
         data_tot = self.controller.your_method_to_get_data_from_buffer()
-        self.dte_signal.emit(DataToExport(name='myplugin',
+        self.dte_signal.emit(DataToExport(name='signal_recovery',
                                           data=[DataFromPlugins(name='Mock1', data=data_tot,
                                                                 dim='Data0D', labels=['dat0', 'data1'])]))
 
     def stop(self):
         """Stop the current grab hardware wise if necessary"""
-        ## TODO for your custom plugin
-        raise NotImplemented  # when writing your own plugin remove this line
-        self.controller.your_method_to_stop_acquisition()  # when writing your own plugin replace this line
-        self.emit_status(ThreadCommand('Update_Status', ['Some info you want to log']))
-        ##############################
+        self.controller.close_communication()
+        self.emit_status(ThreadCommand('Update_Status', ['Communication aborted']))
         return ''
 
 
