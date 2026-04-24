@@ -43,8 +43,8 @@ class DAQ_0DViewer_Lockin5210(DAQ_Viewer_base):
         """
         if param.name() == 'address':
             self.controller.close_communication()
-            id, initialized = self.controller.open_communication(param.value())
-            self.settings.child('id').setValue(id)
+            my_id, initialized = self.controller.open_communication(param.value())
+            self.settings.child('id').setValue(my_id)
         pass
 
     def ini_detector(self, controller=None):
@@ -66,16 +66,16 @@ class DAQ_0DViewer_Lockin5210(DAQ_Viewer_base):
         self.ini_detector_init(old_controller=controller,
                                new_controller=LockIn5210())
 
-        self.dte_signal_temp.emit(DataToExport(name='signal_recovery',
-                                               data=[DataFromPlugins(name='Mock1',
+        self.dte_signal_temp.emit(DataToExport(name='LockIn',
+                                               data=[DataFromPlugins(name='LockIn',
                                                                     data=[np.array([0]), np.array([0])],
                                                                     dim='Data0D',
-                                                                    labels=['Mock1', 'label2'])]))
+                                                                    labels=['data0', 'data1'])]))
 
         info = "Initializing EGG 5210"
-        address = self.settings.child(('address')).value()
-        id, initialized = self.controller.open_communication(address)
-        self.settings.child('id').setValue(id)
+        address = self.settings.child('address').value()
+        my_id, initialized = self.controller.open_communication(address)
+        self.settings.child('id').setValue(my_id)
         return info, initialized
 
     def close(self):
@@ -96,18 +96,17 @@ class DAQ_0DViewer_Lockin5210(DAQ_Viewer_base):
 
         # synchrone version (blocking function)
         data_tot = self.controller.get_acquired_data()
-        self.dte_signal.emit(DataToExport(name='signal_recovery',
-                                          data=[DataFromPlugins(name='Mock1', data=data_tot,
+        self.dte_signal.emit(DataToExport(name='LockIn',
+                                          data=[DataFromPlugins(name='LockIn', data=data_tot,
                                                                 dim='Data0D', labels=['data0', 'data1'])]))
-
-
 
     def callback(self):
         """optional asynchrone method called when the detector has finished its acquisition of data"""
-        data_tot = self.controller.your_method_to_get_data_from_buffer()
-        self.dte_signal.emit(DataToExport(name='signal_recovery',
-                                          data=[DataFromPlugins(name='Mock1', data=data_tot,
-                                                                dim='Data0D', labels=['dat0', 'data1'])]))
+        raise NotImplementedError
+        #data_tot = self.controller.your_method_to_get_data_from_buffer()
+        #self.dte_signal.emit(DataToExport(name='signal_recovery',
+        #                                  data=[DataFromPlugins(name='Mock1', data=data_tot,
+        #                                                        dim='Data0D', labels=['dat0', 'data1'])]))
 
     def stop(self):
         """Stop the current grab hardware wise if necessary"""
